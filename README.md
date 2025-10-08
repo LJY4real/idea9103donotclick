@@ -1,4 +1,4 @@
-# idea9103donotclick
+# Quiz 8 - Major Assignment Design Research
 
 ## Part 1: Imaging Technique Inspiration
 
@@ -12,7 +12,7 @@ My imaging technique inspiration comes from two iconic works:
 
 **The Matrix (1999) - Digital Rain Effect**
 
-![Matrix Digital Rain](https://i.imgur.com/matrix-code.jpg)
+![Matrix Digital Rain](https://wallpaperaccess.com/full/9182082.jpg)
 
 ### What I Want to Incorporate
 
@@ -31,7 +31,7 @@ For my project, I want to create an interactive clock that accelerates and trans
 Key elements:
 - Custom classes to manage visual elements
 - Arrays to store and iterate through objects
-- Time-based triggers (`millis()` function)
+- Time-based triggers with `millis()` function
 - Mathematical transformations for rotation
 
 ### How It Helps
@@ -48,9 +48,7 @@ The combination of loops, conditionals, and arrays creates the illusion of time 
 
 **Reference Implementation:**
 
-[p5.js Objects Tutorial](https://p5js.org/examples/objects-objects.html)
-
-![p5.js Classes Example](https://p5js.org/assets/learn/objects/objects.png)
+[p5.js Objects Tutorial](https://p5js.org/examples/transformation-rotate/)
 
 **Key Techniques:**
 - Classes and constructors
@@ -58,10 +56,6 @@ The combination of loops, conditionals, and arrays creates the illusion of time 
 - `for...of` loops
 - Time control with `millis()`
 - Trigonometry (`cos`, `sin`)
-
-**Additional Resources:**
-- [p5.js Arrays](https://p5js.org/examples/arrays-array.html)
-- [Particle Systems Tutorial](https://thecodingtrain.com/particle-systems)
 
 ---
 

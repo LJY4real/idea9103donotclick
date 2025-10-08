@@ -16,6 +16,11 @@ let rotationSpeed = 6;
 
 let startTime = 0;
 let shapesCleared = false;
+let fadeAlpha = 255;
+
+let magnifierActive = false;
+let magnifierSize = 100;
+let magnifyScale = 2;
 
 let clockCenterX;
 let clockCenterY;
@@ -35,7 +40,7 @@ function setup() {
   minuteAngle = -90;
   secondAngle = -90;
   
-  for (let i = 0; i < 30; i = i + 1) {
+  for (let i = 0; i < 80; i = i + 1) {
     let matrixChar = new MatrixCharacter(random(width), random(-500, 0), random(2, 5));
     matrixChars.push(matrixChar);
   }
@@ -49,6 +54,13 @@ function draw() {
     if (timeElapsed >= 10 && shapesCleared == false) {
       shapes = [];
       shapesCleared = true;
+      magnifierActive = true;
+    }
+    
+    if (timeElapsed >= 10 && timeElapsed < 30) {
+      fadeAlpha = 255 - ((timeElapsed - 10) / 20) * 255;
+    } else if (timeElapsed >= 30) {
+      fadeAlpha = 0;
     }
   }
   
@@ -68,7 +80,12 @@ function draw() {
     }
   }
   
-  if (shapesCleared == true) {
+  if (shapesCleared == false) {
+    for (const matrixChar of matrixChars) {
+      matrixChar.update();
+      matrixChar.draw();
+    }
+  } else if (fadeAlpha > 0) {
     for (const matrixChar of matrixChars) {
       matrixChar.update();
       matrixChar.draw();
@@ -96,6 +113,27 @@ function draw() {
     
     fill(0);
     ellipse(clockCenterX, clockCenterY, 10, 10);
+  } else if (fadeAlpha > 0) {
+    fill(255, fadeAlpha);
+    stroke(0, fadeAlpha);
+    strokeWeight(3);
+    ellipse(clockCenterX, clockCenterY, clockRadius * 2, clockRadius * 2);
+    
+    fill(0, fadeAlpha);
+    noStroke();
+    textAlign(CENTER, CENTER);
+    textSize(20);
+    
+    for (let i = 1; i <= 12; i++) {
+      let angle = i * 30 - 90;
+      let angleRad = angle * 3.14159 / 180;
+      let x = clockCenterX + cos(angleRad) * (clockRadius * 0.75);
+      let y = clockCenterY + sin(angleRad) * (clockRadius * 0.75);
+      text(i, x, y);
+    }
+    
+    fill(0, fadeAlpha);
+    ellipse(clockCenterX, clockCenterY, 10, 10);
   }
   
   if (isRotating == true) {
@@ -114,9 +152,9 @@ function draw() {
     }
   }
   
-  drawClockHand(hourAngle, clockRadius * 0.4, 8, color(50));
-  drawClockHand(minuteAngle, clockRadius * 0.6, 5, color(100));
-  drawClockHand(secondAngle, clockRadius * 0.8, 2, color(255, 0, 0));
+  drawClockHand(hourAngle, clockRadius * 0.4, 8, color(50, 50, 50, fadeAlpha));
+  drawClockHand(minuteAngle, clockRadius * 0.6, 5, color(100, 100, 100, fadeAlpha));
+  drawClockHand(secondAngle, clockRadius * 0.8, 2, color(255, 0, 0, fadeAlpha));
   
   fill(0);
   noStroke();
@@ -124,6 +162,14 @@ function draw() {
   textSize(16);
   text("Click mouse: Start/Stop rotation", 450, 50);
   text("Press SPACE: Reset everything", 450, 80);
+  if (shapesCleared == true) {
+    text("Press 1: Toggle magnifier ON/OFF", 450, 110);
+    text("Magnifier: " + (magnifierActive ? "ON" : "OFF"), 450, 140);
+  }
+  
+  if (magnifierActive == true && shapesCleared == true && backgroundImg) {
+    drawMagnifier();
+  }
 }
 
 function drawClockHand(angle, length, thickness, handColor) {
@@ -160,11 +206,21 @@ function keyPressed() {
     angleCheckpoint = -90;
     rotationSpeed = 6;
     startTime = 0;
+    fadeAlpha = 255;
+    magnifierActive = false;
     
     matrixChars = [];
-    for (let i = 0; i < 30; i = i + 1) {
+    for (let i = 0; i < 80; i = i + 1) {
       let matrixChar = new MatrixCharacter(random(width), random(-500, 0), random(2, 5));
       matrixChars.push(matrixChar);
+    }
+  }
+  
+  if (key == "1") {
+    if (magnifierActive == true) {
+      magnifierActive = false;
+    } else {
+      magnifierActive = true;
     }
   }
 }
@@ -192,6 +248,25 @@ function addRandomShape() {
   
   let newShape = new RandomShape(x, y, size, shapeColor, shapeType, useGradient, gradientColor1, gradientColor2, rotationAngle, strokeColor);
   shapes.push(newShape);
+}
+
+function drawMagnifier() {
+  let srcCenterX = (mouseX / width) * backgroundImg.width;
+  let srcCenterY = (mouseY / height) * backgroundImg.height;
+  
+  let srcSize = magnifierSize / magnifyScale;
+  
+  let srcX = srcCenterX - srcSize / 2;
+  let srcY = srcCenterY - srcSize / 2;
+  
+  srcX = max(0, min(srcX, backgroundImg.width - srcSize));
+  srcY = max(0, min(srcY, backgroundImg.height - srcSize));
+  
+  let magnifiedImg = backgroundImg.get(srcX, srcY, srcSize, srcSize);
+  
+  imageMode(CENTER);
+  image(magnifiedImg, mouseX, mouseY, magnifierSize, magnifierSize);
+  imageMode(CORNER);
 }
 
 class RandomShape {
@@ -351,12 +426,11 @@ class MatrixCharacter {
     }
   }
   
-    draw() {
-      fill(0, 255, 0, 200);
-      noStroke();
-      textSize(16);
-      textAlign(CENTER, CENTER);
-      text(this.char, this.x, this.y);
-    }
-
+  draw() {
+    fill(0, 255, 0, fadeAlpha * 0.8);
+    noStroke();
+    textSize(24);
+    textAlign(CENTER);
+    text(this.char, this.x, this.y);
+  }
 }
