@@ -16,7 +16,7 @@ My imaging technique inspiration comes from three iconic works:
 
 **Piet Mondrian - Composition with Red, Yellow and Blue (1930)**
 
-![Mondrian Composition](https://en.wikipedia.org/wiki/Composition_with_Red,_Blue_and_Yellow#/media/File:Piet_Mondriaan,_1930_-_Mondrian_Composition_II_in_Red,_Blue,_and_Yellow.jpg)
+![Mondrian Composition](https://upload.wikimedia.org/wikipedia/commons/thumb/a/a4/Piet_Mondriaan%2C_1930_-_Mondrian_Composition_II_in_Red%2C_Blue%2C_and_Yellow.jpg/500px-Piet_Mondriaan%2C_1930_-_Mondrian_Composition_II_in_Red%2C_Blue%2C_and_Yellow.jpg)
 
 ### What I Want to Incorporate
 
