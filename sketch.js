@@ -26,6 +26,10 @@ let clockCenterX;
 let clockCenterY;
 let clockRadius = 150;
 
+let hueOffset = 0;
+
+let mondrianBlocks = [];
+
 function preload() {
   backgroundImg = loadImage('libraries/cri_000000386470.jpg');
 }
@@ -39,6 +43,8 @@ function setup() {
   hourAngle = -90;
   minuteAngle = -90;
   secondAngle = -90;
+  
+  generateMondrianBlocks();
   
   for (let i = 0; i < 80; i = i + 1) {
     let matrixChar = new MatrixCharacter(random(width), random(-500, 0), random(2, 5));
@@ -61,6 +67,11 @@ function draw() {
       fadeAlpha = 255 - ((timeElapsed - 10) / 20) * 255;
     } else if (timeElapsed >= 30) {
       fadeAlpha = 0;
+    }
+    
+    hueOffset = hueOffset + 2;
+    if (hueOffset > 360) {
+      hueOffset = 0;
     }
   }
   
@@ -98,6 +109,8 @@ function draw() {
     strokeWeight(3);
     ellipse(clockCenterX, clockCenterY, clockRadius * 2, clockRadius * 2);
     
+    drawMondrianClock();
+    
     fill(0);
     noStroke();
     textAlign(CENTER, CENTER);
@@ -118,6 +131,8 @@ function draw() {
     stroke(0, fadeAlpha);
     strokeWeight(3);
     ellipse(clockCenterX, clockCenterY, clockRadius * 2, clockRadius * 2);
+    
+    drawMondrianClockWithAlpha(fadeAlpha);
     
     fill(0, fadeAlpha);
     noStroke();
@@ -152,9 +167,13 @@ function draw() {
     }
   }
   
-  drawClockHand(hourAngle, clockRadius * 0.4, 8, color(50, 50, 50, fadeAlpha));
-  drawClockHand(minuteAngle, clockRadius * 0.6, 5, color(100, 100, 100, fadeAlpha));
-  drawClockHand(secondAngle, clockRadius * 0.8, 2, color(255, 0, 0, fadeAlpha));
+  let hourColor = getColorFromHue(hueOffset);
+  let minuteColor = getColorFromHue(hueOffset + 120);
+  let secondColor = getColorFromHue(hueOffset + 240);
+  
+  drawClockHand(hourAngle, clockRadius * 0.4, 8, color(red(hourColor), green(hourColor), blue(hourColor), fadeAlpha));
+  drawClockHand(minuteAngle, clockRadius * 0.6, 5, color(red(minuteColor), green(minuteColor), blue(minuteColor), fadeAlpha));
+  drawClockHand(secondAngle, clockRadius * 0.8, 2, color(red(secondColor), green(secondColor), blue(secondColor), fadeAlpha));
   
   fill(0);
   noStroke();
@@ -184,6 +203,109 @@ function drawClockHand(angle, length, thickness, handColor) {
   line(clockCenterX, clockCenterY, endX, endY);
 }
 
+function getColorFromHue(hue) {
+  let h = hue;
+  while (h >= 360) {
+    h = h - 360;
+  }
+  while (h < 0) {
+    h = h + 360;
+  }
+  
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  
+  if (h < 60) {
+    r = 255;
+    g = (h / 60) * 255;
+    b = 0;
+  } else if (h < 120) {
+    r = ((120 - h) / 60) * 255;
+    g = 255;
+    b = 0;
+  } else if (h < 180) {
+    r = 0;
+    g = 255;
+    b = ((h - 120) / 60) * 255;
+  } else if (h < 240) {
+    r = 0;
+    g = ((240 - h) / 60) * 255;
+    b = 255;
+  } else if (h < 300) {
+    r = ((h - 240) / 60) * 255;
+    g = 0;
+    b = 255;
+  } else {
+    r = 255;
+    g = 0;
+    b = ((360 - h) / 60) * 255;
+  }
+  
+  return color(r, g, b);
+}
+
+function drawMondrianClock() {
+  let cx = clockCenterX;
+  let cy = clockCenterY;
+  let r = clockRadius * 0.9;
+  
+  for (const block of mondrianBlocks) {
+    stroke(0);
+    strokeWeight(4);
+    fill(block.r, block.g, block.b);
+    rect(cx + block.x, cy + block.y, block.w, block.h);
+  }
+}
+
+function drawMondrianClockWithAlpha(alpha) {
+  let cx = clockCenterX;
+  let cy = clockCenterY;
+  let r = clockRadius * 0.9;
+  
+  for (const block of mondrianBlocks) {
+    stroke(0, alpha);
+    strokeWeight(4);
+    fill(block.r, block.g, block.b, alpha);
+    rect(cx + block.x, cy + block.y, block.w, block.h);
+  }
+}
+
+function generateMondrianBlocks() {
+  let r = clockRadius * 0.9;
+  let colors = [
+    {r: 255, g: 0, b: 0},
+    {r: 255, g: 220, b: 0},
+    {r: 0, g: 80, b: 180},
+    {r: 255, g: 255, b: 255},
+    {r: 255, g: 255, b: 255}
+  ];
+  
+  let numBlocks = 8 + int(random(5));
+  
+  for (let i = 0; i < numBlocks; i = i + 1) {
+    let blockW = random(r * 0.3, r * 0.8);
+    let blockH = random(r * 0.3, r * 0.8);
+    let blockX = random(-r, r - blockW);
+    let blockY = random(-r, r - blockH);
+    
+    let colorIndex = int(random(colors.length));
+    let selectedColor = colors[colorIndex];
+    
+    let block = {
+      x: blockX,
+      y: blockY,
+      w: blockW,
+      h: blockH,
+      r: selectedColor.r,
+      g: selectedColor.g,
+      b: selectedColor.b
+    };
+    
+    mondrianBlocks.push(block);
+  }
+}
+
 function mousePressed() {
   if (isRotating == true) {
     isRotating = false;
@@ -208,6 +330,10 @@ function keyPressed() {
     startTime = 0;
     fadeAlpha = 255;
     magnifierActive = false;
+    hueOffset = 0;
+    
+    mondrianBlocks = [];
+    generateMondrianBlocks();
     
     matrixChars = [];
     for (let i = 0; i < 80; i = i + 1) {
