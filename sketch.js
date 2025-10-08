@@ -31,7 +31,7 @@ let hueOffset = 0;
 let mondrianBlocks = [];
 
 function preload() {
-  backgroundImg = loadImage('libraries/cri_000000386470.jpg');
+  backgroundImg = loadImage('libraries/The_Persistence_of_Memory.jpg');
 }
 
 function setup() {
