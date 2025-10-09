@@ -18,6 +18,7 @@ let startTime = 0;
 let shapesCleared = false;
 let fadeAlpha = 255;
 
+
 let magnifierActive = false;
 let magnifierSize = 100;
 let magnifyScale = 2;
@@ -29,6 +30,29 @@ let clockRadius = 150;
 let hueOffset = 0;
 
 let mondrianBlocks = [];
+let mondrianUpdateTimer = 0;
+
+let clockNumbers = [];
+
+let pixelationLevel = 1;
+let isReversing = false;
+let reverseStartTime = 0;
+let pixelatedImg = null;
+let lastPixelationLevel = 1;
+
+let poeticTexts = [
+  "Time is fluid...",
+  "Reality bends...",
+  "Wake up...",
+  "The persistence of memory",
+  "Follow the white rabbit"
+];
+let currentTextIndex = 0;
+let textAlpha = 0;
+let textFadeTimer = 0;
+
+let glitchTexts = [];
+let instructionTexts = [];
 
 function preload() {
   backgroundImg = loadImage('libraries/The_Persistence_of_Memory.jpg');
@@ -44,10 +68,26 @@ function setup() {
   minuteAngle = -90;
   secondAngle = -90;
   
+  mondrianBlocks = [];
   generateMondrianBlocks();
   
+  for (let i = 1; i <= 12; i = i + 1) {
+    clockNumbers.push(new ClockNumber(i));
+  }
+  
+  glitchTexts = [];
+  for (let i = 0; i < poeticTexts.length; i = i + 1) {
+    glitchTexts.push(new GlitchText(poeticTexts[i]));
+  }
+  
+  instructionTexts.push(new GlitchText("Click mouse: Start/Stop rotation"));
+  instructionTexts.push(new GlitchText("Press SPACE: Reset everything"));
+  instructionTexts.push(new GlitchText("Press 1: Toggle magnifier ON/OFF"));
+  instructionTexts.push(new GlitchText("Magnifier: "));
+  
+  matrixChars = [];
   for (let i = 0; i < 80; i = i + 1) {
-    let matrixChar = new MatrixCharacter(random(width), random(-500, 0), random(2, 5));
+    let matrixChar = new MatrixCharacter(random(width), random(-500, 0), random(2, 5), random(150, 255));
     matrixChars.push(matrixChar);
   }
 }
@@ -57,38 +97,86 @@ function draw() {
     let currentTime = millis();
     let timeElapsed = (currentTime - startTime) / 1000;
     
+    if (isReversing == false && timeElapsed >= 30) {
+      isReversing = true;
+      reverseStartTime = millis();
+    }
+    
+    if (isReversing == true) {
+      let reverseElapsed = (millis() - reverseStartTime) / 1000;
+      timeElapsed = 30 - reverseElapsed;
+      if (timeElapsed <= 0) {
+        isReversing = false;
+        startTime = millis();
+        timeElapsed = 0;
+        shapesCleared = false;
+        fadeAlpha = 255;
+        pixelationLevel = 1;
+        rotationSpeed = 6;
+      }
+    }
+    
     if (timeElapsed >= 10 && shapesCleared == false) {
-      shapes = [];
       shapesCleared = true;
       magnifierActive = true;
     }
     
     if (timeElapsed >= 10 && timeElapsed < 30) {
       fadeAlpha = 255 - ((timeElapsed - 10) / 20) * 255;
+      pixelationLevel = 1 + int((timeElapsed - 10) / 4);
     } else if (timeElapsed >= 30) {
       fadeAlpha = 0;
+    } else {
+      fadeAlpha = 255;
+      pixelationLevel = 1;
     }
     
     hueOffset = hueOffset + 2;
     if (hueOffset > 360) {
       hueOffset = 0;
     }
+    
+    mondrianUpdateTimer = mondrianUpdateTimer + 1;
+    if (mondrianUpdateTimer > 60 && shapesCleared == false) {
+      mondrianBlocks = [];
+      generateMondrianBlocks();
+      mondrianUpdateTimer = 0;
+    }
+    
+    textFadeTimer = textFadeTimer + 1;
+    if (textFadeTimer > 180) {
+      currentTextIndex = (currentTextIndex + 1) % poeticTexts.length;
+      textFadeTimer = 0;
+    }
+    
+    if (textFadeTimer < 60) {
+      textAlpha = (textFadeTimer / 60) * 255;
+    } else if (textFadeTimer > 120) {
+      textAlpha = ((180 - textFadeTimer) / 60) * 255;
+    } else {
+      textAlpha = 255;
+    }
   }
   
   if (shapesCleared == true) {
     if (backgroundImg) {
-      image(backgroundImg, 0, 0, width, height);
+      if (pixelationLevel > 1) {
+        if (pixelationLevel != lastPixelationLevel) {
+          pixelatedImg = createPixelatedImage(backgroundImg, pixelationLevel * 8);
+          lastPixelationLevel = pixelationLevel;
+        }
+        if (pixelatedImg) {
+          image(pixelatedImg, 0, 0, width, height);
+        }
+      } else {
+        image(backgroundImg, 0, 0, width, height);
+      }
     } else {
       background(150, 200, 255);
     }
   } else {
     background(220);
-  }
-  
-  if (shapesCleared == false) {
-    for (const shape of shapes) {
-      shape.draw();
-    }
+    drawMondrianBackground();
   }
   
   if (shapesCleared == false) {
@@ -107,48 +195,80 @@ function draw() {
     fill(255);
     stroke(0);
     strokeWeight(3);
-    ellipse(clockCenterX, clockCenterY, clockRadius * 2, clockRadius * 2);
     
-    drawMondrianClock();
+    let currentTime = millis();
+    let timeElapsed = (currentTime - startTime) / 1000;
+    let distortionFactor = 0;
     
-    fill(0);
+    if (timeElapsed > 5) {
+      distortionFactor = (timeElapsed - 5) / 5;
+      distortionFactor = min(distortionFactor, 1);
+    }
+    
+    let distortion = (rotationSpeed / 50) * distortionFactor;
+    let radiusX = clockRadius * 2 + distortion * 80;
+    let radiusY = clockRadius * 2 - distortion * 60;
+    
+    let waveOffset = sin(millis() / 200) * distortion * 15;
+    
+    ellipse(clockCenterX + waveOffset, clockCenterY, radiusX, radiusY);
+    
     noStroke();
     textAlign(CENTER, CENTER);
     textSize(20);
     
-    for (let i = 1; i <= 12; i++) {
+    for (let i = 1; i <= 12; i = i + 1) {
       let angle = i * 30 - 90;
       let angleRad = angle * 3.14159 / 180;
-      let x = clockCenterX + cos(angleRad) * (clockRadius * 0.75);
-      let y = clockCenterY + sin(angleRad) * (clockRadius * 0.75);
+      let distFromMouse = dist(mouseX, mouseY, clockCenterX, clockCenterY);
+      let pushFactor = max(0, 1 - distFromMouse / 200);
+      let offset = pushFactor * 15;
+      
+      let warpX = cos(millis() / 300 + i) * distortion * 10;
+      let warpY = sin(millis() / 300 + i) * distortion * 10;
+      
+      let x = clockCenterX + cos(angleRad) * (clockRadius * 0.75 + offset) + warpX + waveOffset;
+      let y = clockCenterY + sin(angleRad) * (clockRadius * 0.75 + offset) + warpY;
+      fill(0);
       text(i, x, y);
     }
     
     fill(0);
-    ellipse(clockCenterX, clockCenterY, 10, 10);
+    ellipse(clockCenterX + waveOffset, clockCenterY, 10, 10);
   } else if (fadeAlpha > 0) {
     fill(255, fadeAlpha);
     stroke(0, fadeAlpha);
     strokeWeight(3);
-    ellipse(clockCenterX, clockCenterY, clockRadius * 2, clockRadius * 2);
     
-    drawMondrianClockWithAlpha(fadeAlpha);
+    let distortion = rotationSpeed / 50;
+    let radiusX = clockRadius * 2 + distortion * 80;
+    let radiusY = clockRadius * 2 - distortion * 60;
     
-    fill(0, fadeAlpha);
+    let waveOffset = sin(millis() / 200) * distortion * 15;
+    
+    ellipse(clockCenterX + waveOffset, clockCenterY, radiusX, radiusY);
+    
     noStroke();
     textAlign(CENTER, CENTER);
     textSize(20);
     
-    for (let i = 1; i <= 12; i++) {
-      let angle = i * 30 - 90;
+    for (let i = 0; i < clockNumbers.length; i = i + 1) {
+      let number = clockNumbers[i];
+      number.update();
+      let angle = number.position * 30 - 90;
       let angleRad = angle * 3.14159 / 180;
-      let x = clockCenterX + cos(angleRad) * (clockRadius * 0.75);
-      let y = clockCenterY + sin(angleRad) * (clockRadius * 0.75);
-      text(i, x, y);
+      
+      let warpX = cos(millis() / 300 + number.position) * distortion * 10;
+      let warpY = sin(millis() / 300 + number.position) * distortion * 10;
+      
+      let x = clockCenterX + cos(angleRad) * (clockRadius * 0.75) + warpX + waveOffset;
+      let y = clockCenterY + sin(angleRad) * (clockRadius * 0.75) + warpY;
+      fill(0, 255, 0, fadeAlpha);
+      text(number.displayChar, x, y);
     }
     
     fill(0, fadeAlpha);
-    ellipse(clockCenterX, clockCenterY, 10, 10);
+    ellipse(clockCenterX + waveOffset, clockCenterY, 10, 10);
   }
   
   if (isRotating == true) {
@@ -157,14 +277,6 @@ function draw() {
     secondAngle = secondAngle + rotationSpeed;
     minuteAngle = minuteAngle + rotationSpeed / 60;
     hourAngle = hourAngle + rotationSpeed / 720;
-    
-    if (secondAngle >= angleCheckpoint + 30 && shapesCleared == false) {
-      let numShapes = 5 + int(random(6));
-      for (let i = 0; i < numShapes; i = i + 1) {
-        addRandomShape();
-      }
-      angleCheckpoint = angleCheckpoint + 30;
-    }
   }
   
   let hourColor = getColorFromHue(hueOffset);
@@ -175,19 +287,32 @@ function draw() {
   drawClockHand(minuteAngle, clockRadius * 0.6, 5, color(red(minuteColor), green(minuteColor), blue(minuteColor), fadeAlpha));
   drawClockHand(secondAngle, clockRadius * 0.8, 2, color(red(secondColor), green(secondColor), blue(secondColor), fadeAlpha));
   
-  fill(0);
+  for (let i = 0; i < instructionTexts.length; i = i + 1) {
+    instructionTexts[i].update();
+  }
+  
+  fill(0, 255, 0);
   noStroke();
   textAlign(LEFT, TOP);
   textSize(16);
-  text("Click mouse: Start/Stop rotation", 450, 50);
-  text("Press SPACE: Reset everything", 450, 80);
+  text(instructionTexts[0].displayText, 450, 50);
+  text(instructionTexts[1].displayText, 450, 80);
   if (shapesCleared == true) {
-    text("Press 1: Toggle magnifier ON/OFF", 450, 110);
-    text("Magnifier: " + (magnifierActive ? "ON" : "OFF"), 450, 140);
+    text(instructionTexts[2].displayText, 450, 110);
+    text(instructionTexts[3].displayText + (magnifierActive ? "ON" : "OFF"), 450, 140);
   }
   
   if (magnifierActive == true && shapesCleared == true && backgroundImg) {
     drawMagnifier();
+  }
+  
+  if (isRotating == true && shapesCleared == false) {
+    glitchTexts[currentTextIndex].update();
+    fill(0, 255, 0, textAlpha);
+    noStroke();
+    textAlign(CENTER, CENTER);
+    textSize(32);
+    text(glitchTexts[currentTextIndex].displayText, width / 2, height - 50);
   }
 }
 
@@ -245,34 +370,16 @@ function getColorFromHue(hue) {
   return color(r, g, b);
 }
 
-function drawMondrianClock() {
-  let cx = clockCenterX;
-  let cy = clockCenterY;
-  let r = clockRadius * 0.9;
-  
+function drawMondrianBackground() {
   for (const block of mondrianBlocks) {
     stroke(0);
-    strokeWeight(4);
+    strokeWeight(6);
     fill(block.r, block.g, block.b);
-    rect(cx + block.x, cy + block.y, block.w, block.h);
-  }
-}
-
-function drawMondrianClockWithAlpha(alpha) {
-  let cx = clockCenterX;
-  let cy = clockCenterY;
-  let r = clockRadius * 0.9;
-  
-  for (const block of mondrianBlocks) {
-    stroke(0, alpha);
-    strokeWeight(4);
-    fill(block.r, block.g, block.b, alpha);
-    rect(cx + block.x, cy + block.y, block.w, block.h);
+    rect(block.x, block.y, block.w, block.h);
   }
 }
 
 function generateMondrianBlocks() {
-  let r = clockRadius * 0.9;
   let colors = [
     {r: 255, g: 0, b: 0},
     {r: 255, g: 220, b: 0},
@@ -281,13 +388,13 @@ function generateMondrianBlocks() {
     {r: 255, g: 255, b: 255}
   ];
   
-  let numBlocks = 8 + int(random(5));
+  let numBlocks = 10 + int(random(8));
   
   for (let i = 0; i < numBlocks; i = i + 1) {
-    let blockW = random(r * 0.3, r * 0.8);
-    let blockH = random(r * 0.3, r * 0.8);
-    let blockX = random(-r, r - blockW);
-    let blockY = random(-r, r - blockH);
+    let blockW = random(80, 250);
+    let blockH = random(80, 250);
+    let blockX = random(0, width - blockW);
+    let blockY = random(0, height - blockH);
     
     let colorIndex = int(random(colors.length));
     let selectedColor = colors[colorIndex];
@@ -320,7 +427,6 @@ function mousePressed() {
 function keyPressed() {
   if (key == " ") {
     isRotating = false;
-    shapes = [];
     shapesCleared = false;
     hourAngle = -90;
     minuteAngle = -90;
@@ -331,13 +437,37 @@ function keyPressed() {
     fadeAlpha = 255;
     magnifierActive = false;
     hueOffset = 0;
+    mondrianUpdateTimer = 0;
+    pixelationLevel = 1;
+    isReversing = false;
+    textAlpha = 0;
+    textFadeTimer = 0;
+    currentTextIndex = 0;
+    pixelatedImg = null;
+    lastPixelationLevel = 1;
     
     mondrianBlocks = [];
     generateMondrianBlocks();
     
+    clockNumbers = [];
+    for (let i = 1; i <= 12; i = i + 1) {
+      clockNumbers.push(new ClockNumber(i));
+    }
+    
+    glitchTexts = [];
+    for (let i = 0; i < poeticTexts.length; i = i + 1) {
+      glitchTexts.push(new GlitchText(poeticTexts[i]));
+    }
+    
+    instructionTexts = [];
+    instructionTexts.push(new GlitchText("Click mouse: Start/Stop rotation"));
+    instructionTexts.push(new GlitchText("Press SPACE: Reset everything"));
+    instructionTexts.push(new GlitchText("Press 1: Toggle magnifier ON/OFF"));
+    instructionTexts.push(new GlitchText("Magnifier: "));
+    
     matrixChars = [];
     for (let i = 0; i < 80; i = i + 1) {
-      let matrixChar = new MatrixCharacter(random(width), random(-500, 0), random(2, 5));
+      let matrixChar = new MatrixCharacter(random(width), random(-500, 0), random(2, 5), random(150, 255));
       matrixChars.push(matrixChar);
     }
   }
@@ -351,186 +481,119 @@ function keyPressed() {
   }
 }
 
-function addRandomShape() {
-  let size = 20 + random(80);
+function createPixelatedImage(img, pixelSize) {
+  let tempImg = createGraphics(width, height);
+  let cols = int(width / pixelSize);
+  let rows = int(height / pixelSize);
   
-  let x = size / 2 + random(width - size);
-  let y = size / 2 + random(height - size);
-  
-  let useGradient = false;
-  if (random(1) < 0.1) {
-    useGradient = true;
+  tempImg.noStroke();
+  for (let x = 0; x < cols; x = x + 1) {
+    for (let y = 0; y < rows; y = y + 1) {
+      let imgX = int((x / cols) * img.width);
+      let imgY = int((y / rows) * img.height);
+      let c = img.get(imgX, imgY);
+      tempImg.fill(c);
+      tempImg.rect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
+    }
   }
-  
-  let shapeColor = color(random(255), random(255), random(255), 150 + random(105));
-  let gradientColor1 = color(random(255), random(255), random(255));
-  let gradientColor2 = color(random(255), random(255), random(255));
-  
-  let shapeType = int(random(4));
-  
-  let rotationAngle = random(360);
-  
-  let strokeColor = color(random(255), random(255), random(255));
-  
-  let newShape = new RandomShape(x, y, size, shapeColor, shapeType, useGradient, gradientColor1, gradientColor2, rotationAngle, strokeColor);
-  shapes.push(newShape);
+  return tempImg;
 }
 
 function drawMagnifier() {
-  let srcCenterX = (mouseX / width) * backgroundImg.width;
-  let srcCenterY = (mouseY / height) * backgroundImg.height;
-  
-  let srcSize = magnifierSize / magnifyScale;
-  
-  let srcX = srcCenterX - srcSize / 2;
-  let srcY = srcCenterY - srcSize / 2;
-  
-  srcX = max(0, min(srcX, backgroundImg.width - srcSize));
-  srcY = max(0, min(srcY, backgroundImg.height - srcSize));
-  
-  let magnifiedImg = backgroundImg.get(srcX, srcY, srcSize, srcSize);
-  
-  imageMode(CENTER);
-  image(magnifiedImg, mouseX, mouseY, magnifierSize, magnifierSize);
-  imageMode(CORNER);
+  // Runtime guards: don't attempt to access image if it's not loaded or has invalid dimensions
+  try {
+    if (!backgroundImg) return;
+    if (!backgroundImg.width || !backgroundImg.height) return;
+
+    let srcCenterX = (mouseX / width) * backgroundImg.width;
+    let srcCenterY = (mouseY / height) * backgroundImg.height;
+
+    let srcSize = magnifierSize / magnifyScale;
+    if (!(srcSize > 0)) return;
+
+    let srcX = srcCenterX - srcSize / 2;
+    let srcY = srcCenterY - srcSize / 2;
+
+    srcX = max(0, min(srcX, backgroundImg.width - srcSize));
+    srcY = max(0, min(srcY, backgroundImg.height - srcSize));
+
+    // get() can throw if parameters are invalid; wrap to surface errors clearly
+    let magnifiedImg = backgroundImg.get(srcX, srcY, srcSize, srcSize);
+
+    imageMode(CENTER);
+    image(magnifiedImg, mouseX, mouseY, magnifierSize, magnifierSize);
+    imageMode(CORNER);
+  } catch (err) {
+    console.error('drawMagnifier error:', err);
+    // rethrow so the page-level error overlay will show the stack trace
+    throw err;
+  }
 }
 
-class RandomShape {
+class ClockNumber {
   
-  constructor(xPosInPrm, yPosInPrm, sizeInPrm, colorInPrm, typeInPrm, useGradientInPrm, gradientColor1InPrm, gradientColor2InPrm, rotationAngleInPrm, strokeColorInPrm) {
-    this.xPos = xPosInPrm;
-    this.yPos = yPosInPrm;
-    this.size = sizeInPrm;
-    this.shapeColor = colorInPrm;
-    this.shapeType = typeInPrm;
-    this.useGradient = useGradientInPrm;
-    this.gradientColor1 = gradientColor1InPrm;
-    this.gradientColor2 = gradientColor2InPrm;
-    this.rotationAngle = rotationAngleInPrm;
-    this.strokeColor = strokeColorInPrm;
+  constructor(positionInPrm) {
+    this.position = positionInPrm;
+    this.displayChar = this.getRandomChar();
+    this.changeTimer = 0;
   }
   
-  draw() {
-    let savedX = this.xPos;
-    let savedY = this.yPos;
-    
-    stroke(this.strokeColor);
-    strokeWeight(2);
-    
-    if (this.shapeType == 0) {
-      if (this.useGradient == true) {
-        noStroke();
-        let steps = 20;
-        for (let i = steps; i > 0; i = i - 1) {
-          let t = i / steps;
-          let r1 = red(this.gradientColor1);
-          let g1 = green(this.gradientColor1);
-          let b1 = blue(this.gradientColor1);
-          let r2 = red(this.gradientColor2);
-          let g2 = green(this.gradientColor2);
-          let b2 = blue(this.gradientColor2);
-          let r = r1 + (r2 - r1) * (1 - t);
-          let g = g1 + (g2 - g1) * (1 - t);
-          let b = b1 + (b2 - b1) * (1 - t);
-          fill(r, g, b);
-          ellipse(this.xPos, this.yPos, this.size * t, this.size * t);
+  getRandomChar() {
+    let chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%&*";
+    let index = int(random(chars.length));
+    return chars.charAt(index);
+  }
+  
+  update() {
+    this.changeTimer = this.changeTimer + 1;
+    if (this.changeTimer > 15) {
+      this.displayChar = this.getRandomChar();
+      this.changeTimer = 0;
+    }
+  }
+}
+
+class GlitchText {
+  
+  constructor(originalTextInPrm) {
+    this.originalText = originalTextInPrm;
+    this.displayText = originalTextInPrm;
+    this.glitchTimer = 0;
+  }
+  
+  update() {
+    this.glitchTimer = this.glitchTimer + 1;
+    if (this.glitchTimer > 10) {
+      if (random(1) < 0.3) {
+        let newText = "";
+        for (let i = 0; i < this.originalText.length; i = i + 1) {
+          if (this.originalText.charAt(i) == " ") {
+            newText = newText + " ";
+          } else if (random(1) < 0.1) {
+            let chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%&*";
+            let index = int(random(chars.length));
+            newText = newText + chars.charAt(index);
+          } else {
+            newText = newText + this.originalText.charAt(i);
+          }
         }
+        this.displayText = newText;
       } else {
-        fill(this.shapeColor);
-        ellipse(this.xPos, this.yPos, this.size, this.size);
+        this.displayText = this.originalText;
       }
-    } else if (this.shapeType == 1) {
-      let angle = this.rotationAngle * 3.14159 / 180;
-      let x1 = this.xPos + cos(angle) * (-this.size / 2) - sin(angle) * (-this.size / 2);
-      let y1 = this.yPos + sin(angle) * (-this.size / 2) + cos(angle) * (-this.size / 2);
-      let x2 = this.xPos + cos(angle) * (this.size / 2) - sin(angle) * (-this.size / 2);
-      let y2 = this.yPos + sin(angle) * (this.size / 2) + cos(angle) * (-this.size / 2);
-      let x3 = this.xPos + cos(angle) * (this.size / 2) - sin(angle) * (this.size / 2);
-      let y3 = this.yPos + sin(angle) * (this.size / 2) + cos(angle) * (this.size / 2);
-      let x4 = this.xPos + cos(angle) * (-this.size / 2) - sin(angle) * (this.size / 2);
-      let y4 = this.yPos + sin(angle) * (-this.size / 2) + cos(angle) * (this.size / 2);
-      
-      if (this.useGradient == true) {
-        noStroke();
-        let steps = 20;
-        for (let i = 0; i < steps; i = i + 1) {
-          let t = i / steps;
-          let r1 = red(this.gradientColor1);
-          let g1 = green(this.gradientColor1);
-          let b1 = blue(this.gradientColor1);
-          let r2 = red(this.gradientColor2);
-          let g2 = green(this.gradientColor2);
-          let b2 = blue(this.gradientColor2);
-          let r = r1 + (r2 - r1) * t;
-          let g = g1 + (g2 - g1) * t;
-          let b = b1 + (b2 - b1) * t;
-          fill(r, g, b);
-          let yOffset = (this.size * t) / steps;
-          quad(x1, y1 + i * yOffset, x2, y2 + i * yOffset, x2, y2 + (i + 1) * yOffset, x1, y1 + (i + 1) * yOffset);
-        }
-      } else {
-        fill(this.shapeColor);
-        quad(x1, y1, x2, y2, x3, y3, x4, y4);
-      }
-    } else if (this.shapeType == 2) {
-      let angle = this.rotationAngle * 3.14159 / 180;
-      let tx1 = 0;
-      let ty1 = -this.size / 2;
-      let tx2 = -this.size / 2;
-      let ty2 = this.size / 2;
-      let tx3 = this.size / 2;
-      let ty3 = this.size / 2;
-      
-      let rx1 = this.xPos + cos(angle) * tx1 - sin(angle) * ty1;
-      let ry1 = this.yPos + sin(angle) * tx1 + cos(angle) * ty1;
-      let rx2 = this.xPos + cos(angle) * tx2 - sin(angle) * ty2;
-      let ry2 = this.yPos + sin(angle) * tx2 + cos(angle) * ty2;
-      let rx3 = this.xPos + cos(angle) * tx3 - sin(angle) * ty3;
-      let ry3 = this.yPos + sin(angle) * tx3 + cos(angle) * ty3;
-      
-      fill(this.shapeColor);
-      triangle(rx1, ry1, rx2, ry2, rx3, ry3);
-    } else if (this.shapeType == 3) {
-      strokeWeight(5);
-      let angle = this.rotationAngle * 3.14159 / 180;
-      let endX = this.xPos + cos(angle) * this.size;
-      let endY = this.yPos + sin(angle) * this.size;
-      
-      if (this.useGradient == true) {
-        let steps = 20;
-        for (let i = 0; i < steps; i = i + 1) {
-          let t = i / steps;
-          let r1 = red(this.gradientColor1);
-          let g1 = green(this.gradientColor1);
-          let b1 = blue(this.gradientColor1);
-          let r2 = red(this.gradientColor2);
-          let g2 = green(this.gradientColor2);
-          let b2 = blue(this.gradientColor2);
-          let r = r1 + (r2 - r1) * t;
-          let g = g1 + (g2 - g1) * t;
-          let b = b1 + (b2 - b1) * t;
-          stroke(r, g, b);
-          let x1 = this.xPos + (endX - this.xPos) * t;
-          let y1 = this.yPos + (endY - this.yPos) * t;
-          let x2 = this.xPos + (endX - this.xPos) * (t + 1 / steps);
-          let y2 = this.yPos + (endY - this.yPos) * (t + 1 / steps);
-          line(x1, y1, x2, y2);
-        }
-      } else {
-        stroke(this.strokeColor);
-        line(this.xPos, this.yPos, endX, endY);
-      }
+      this.glitchTimer = 0;
     }
   }
 }
 
 class MatrixCharacter {
   
-  constructor(xInPrm, yInPrm, speedInPrm) {
+  constructor(xInPrm, yInPrm, speedInPrm, brightnessInPrm) {
     this.x = xInPrm;
     this.y = yInPrm;
     this.speed = speedInPrm;
     this.char = this.getRandomChar();
+    this.brightness = brightnessInPrm;
   }
   
   getRandomChar() {
@@ -553,10 +616,10 @@ class MatrixCharacter {
   }
   
   draw() {
-    fill(0, 255, 0, fadeAlpha * 0.8);
+    fill(0, this.brightness, 0, fadeAlpha * 0.8);
     noStroke();
     textSize(24);
-    textAlign(CENTER);
+    textAlign(CENTER, CENTER);
     text(this.char, this.x, this.y);
   }
 }
